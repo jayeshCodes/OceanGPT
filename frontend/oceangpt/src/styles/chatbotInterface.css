@@ -112,7 +112,7 @@ input:focus {
 }
 
 .send-btn button {
-  background-color: #4f75ff; /* Primary blue color */
+  background-color: #4f75ff56; /* Primary blue color */
   color: white;
   padding: 12px 20px;
   font-size: 1rem;
