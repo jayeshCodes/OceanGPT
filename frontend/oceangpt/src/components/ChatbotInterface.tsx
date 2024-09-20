@@ -28,7 +28,6 @@ const ChatbotInterface: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false); // New loading state
   const [file, setFile] = useState<File | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
-  
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -87,7 +86,9 @@ const ChatbotInterface: React.FC = () => {
     }
   };
 
-  const handleFileUpload = (event: ChangeEvent<HTMLInputElement>): void => {
+  const handleFileUpload = async (
+    event: ChangeEvent<HTMLInputElement>
+  ): Promise<void> => {
     const files = event.target.files;
     if (files && files[0]) {
       const uploadedFile = files[0];
@@ -97,9 +98,45 @@ const ChatbotInterface: React.FC = () => {
           ...prev,
           { text: `Uploaded: ${uploadedFile.name}`, sender: "system" },
         ]);
+
+        // Call the function to upload the file
+        await uploadFile(uploadedFile);
       } else {
         alert("Please upload a CSV file");
       }
+    }
+  };
+
+  const uploadFile = async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const response = await fetch("http://127.0.0.1:5000/upload_csv", {
+        method: "POST",
+        body: formData,
+        credentials: "include",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setMessages((prev) => [
+          ...prev,
+          { text: data.message, sender: "system" },
+        ]);
+      } else {
+        const errorData = await response.json();
+        setMessages((prev) => [
+          ...prev,
+          { text: `Error: ${errorData.error}`, sender: "system" },
+        ]);
+      }
+    } catch (error) {
+      console.error("Error uploading file:", error);
+      setMessages((prev) => [
+        ...prev,
+        { text: "Error: Failed to connect to the server", sender: "system" },
+      ]);
     }
   };
 
@@ -127,7 +164,7 @@ const ChatbotInterface: React.FC = () => {
       <div className="title-container">
         {/* App title */}
         <div className="title">
-          <h1 className="title-text">🌊 OceanGPT</h1>
+          <h1 className="title-text">🌊 OceanGPT v0.1</h1>
         </div>
         {/* Reset button */}
         <div className="reset-container">
