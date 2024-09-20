@@ -1,19 +1,20 @@
 "use client";
 
-import React, { useState, ChangeEvent, KeyboardEvent, useRef, useEffect } from "react";
+import React, {
+  useState,
+  ChangeEvent,
+  KeyboardEvent,
+  useRef,
+  useEffect,
+} from "react";
 import {
   Button,
-  TextField,
   Paper,
-  List,
-  ListItem,
-  ListItemText,
   Typography,
   TextareaAutosize,
+  CircularProgress,
 } from "@mui/material";
-import { Input } from "@mui/base";
-import { Button as BaseButton, buttonClasses } from "@mui/base/Button";
-import { Send, Upload } from "lucide-react";
+import { Send, Upload, RotateCcw, Settings } from "lucide-react";
 import "../styles/chatbotInterface.css";
 
 interface Message {
@@ -24,8 +25,10 @@ interface Message {
 const ChatbotInterface: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(false); // New loading state
   const [file, setFile] = useState<File | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -33,18 +36,54 @@ const ChatbotInterface: React.FC = () => {
 
   useEffect(scrollToBottom, [messages]);
 
-  const handleSend = (): void => {
+  const handleSend = async (): Promise<void> => {
     if (input.trim()) {
+      // Append user's message to the chat
       setMessages([...messages, { text: input, sender: "user" }]);
-      // Here you would typically send the message to your chatbot backend
-      // and get a response. For this example, we'll just echo the message.
-      setTimeout(() => {
+      setInput(""); // Clear the input after sending the message
+
+      setLoading(true); // Set loading to true when request starts
+
+      try {
+        // Send the message to the Flask backend
+        const response = await fetch("http://127.0.0.1:5000/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ prompt: input }), // send the input as prompt
+          credentials: "include",
+        });
+
+        // Handle backend response
+        if (response.ok) {
+          const data = await response.json();
+          const botResponse = data.response; // The response from the backend
+
+          // Append bot's response to the chat
+          setMessages((prev) => [
+            ...prev,
+            { text: botResponse, sender: "bot" },
+          ]);
+        } else {
+          console.error("Failed to fetch response from the backend");
+          setMessages((prev) => [
+            ...prev,
+            {
+              text: "Error: Failed to get a response from the server",
+              sender: "system",
+            },
+          ]);
+        }
+      } catch (error) {
+        console.error("Error while sending message:", error);
         setMessages((prev) => [
           ...prev,
-          { text: `You said: ${input}`, sender: "bot" },
+          { text: "Error: Failed to connect to the server", sender: "system" },
         ]);
-      }, 500);
-      setInput("");
+      } finally {
+        setLoading(false); // Set loading to false once the request completes
+      }
     }
   };
 
@@ -67,14 +106,41 @@ const ChatbotInterface: React.FC = () => {
   const handleKeyPress = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      handleSend();
+      handleSend(); // Simulate clicking the send button on Enter
+    }
+  };
+
+  const handleReset = async (): Promise<void> => {
+    try {
+      await fetch("http://127.0.0.1:5000/reset", {
+        method: "POST",
+        credentials: "include",
+      });
+      setMessages([]); // Clear the messages on the frontend
+    } catch (error) {
+      console.error("Error resetting conversation:", error);
     }
   };
 
   return (
     <div className="body">
       <div className="title-container">
-        <h1 className="title">🌊 OceanGPT</h1>
+        {/* App title */}
+        <div className="title">
+          <h1 className="title-text">🌊 OceanGPT</h1>
+        </div>
+        {/* Reset button */}
+        <div className="reset-container">
+          <Button onClick={handleReset}>
+            <RotateCcw />
+          </Button>
+        </div>
+        {/* Settings button */}
+        <div className="settings-container">
+          <Button>
+            <Settings />
+          </Button>
+        </div>
       </div>
       <div className="chat-area">
         <Paper elevation={3} className="chat-paper">
@@ -83,6 +149,15 @@ const ChatbotInterface: React.FC = () => {
               <Typography variant="body1">{message.text}</Typography>
             </div>
           ))}
+
+          {/* Show a loading text when waiting for the bot's response */}
+          {loading && (
+            <div className="message bot">
+              <CircularProgress size={20} />{" "}
+              {/* Replace this with a loading spinner */}
+            </div>
+          )}
+
           <div ref={chatEndRef} />
         </Paper>
       </div>
@@ -90,7 +165,12 @@ const ChatbotInterface: React.FC = () => {
         <div className="upload-btn-container">
           <Button component="label">
             <Upload size={20} />
-            <input type="file" hidden accept=".csv" onChange={handleFileUpload} />
+            <input
+              type="file"
+              hidden
+              accept=".csv"
+              onChange={handleFileUpload}
+            />
           </Button>
         </div>
         <div className="user-input">
@@ -103,11 +183,11 @@ const ChatbotInterface: React.FC = () => {
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
               setInput(e.target.value)
             }
-            onKeyPress={handleKeyPress}
+            onKeyPress={handleKeyPress} // Handle key press event here
           />
         </div>
         <div className="send-btn">
-          <Button onClick={handleSend}>
+          <Button onClick={handleSend} disabled={loading}>
             <Send size={20} />
           </Button>
         </div>

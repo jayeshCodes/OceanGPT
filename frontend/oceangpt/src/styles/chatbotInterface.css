@@ -5,17 +5,56 @@
   align-items: center;
   justify-content: space-between;
   height: 100vh;
+  background: linear-gradient(-45deg, #000000, #191734, #000000, #001041);
+  background-size: 400% 400%;
+  animation: gradient 30s ease infinite;
+}
+
+@keyframes gradient {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
 }
 
 /* title styles */
 .title-container {
   padding: 2%;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 }
 
 .title {
+  flex: 15;
+  align-items: center;
+  justify-content: center;
+}
+
+.title-text {
   font-weight: bold;
   font-size: 300%;
   color: #4f75ff;
+  margin-left: 10%;
+}
+
+.reset-container {
+  flex: 1;
+  align-items: end;
+  justify-content: center;
+}
+
+.settings-container {
+  flex: 1;
+  align-items: center;
+  justify-content: center;
 }
 
 /* user input area styles */
@@ -143,7 +182,6 @@ input:focus {
   display: flex;
   overflow-y: hidden;
   margin-bottom: 20px;
-
 }
 
 .chat-paper {
@@ -172,13 +210,13 @@ input:focus {
 
 .bot {
   align-self: flex-start;
-  background-color: #00CCDD;
+  background-color: #00ccdd;
   color: black;
 }
 
 .system {
   align-self: center;
-  background-color: #7CF5FF;
+  background-color: #7cf5ff;
   color: #666;
   font-style: italic;
 }
