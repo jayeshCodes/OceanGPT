@@ -1,0 +1,48 @@
+[
+    {
+        "type": "function",
+        "function": {
+            "name": "get_current_weather",
+            "description": "Get the current weather in a given location and date",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "string",
+                        "description": "The city and state, e.g. San Francisco, CA or London, UK"
+                    },
+                    "date": {
+                        "type": "string",
+                        "description": "The date like today, tomorrow, Monday, next Tuesday, Friday, etc"
+                    }
+                },
+                "required": [
+                    "location",
+                    "date"
+                ]
+            }
+        }
+    },
+    {
+        "type": "function",
+        "function" : {
+            "name": "normal_response",
+            "description": "Generate a normal response based on the user's input and system response",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "user_input": {
+                        "type": "string",
+                        "description": "The user's input"
+                    },
+                    "system_response": {
+                        "type": "string",
+                        "description": "The system's response"
+                    }
+                },
+                "required": [
+                ]
+            }
+        }
+    }
+]
