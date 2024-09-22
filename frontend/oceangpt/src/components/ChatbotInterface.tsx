@@ -19,12 +19,21 @@ import "../styles/chatbotInterface.css";
 import ReactMarkdown from "react-markdown";
 import { DataGrid, GridColDef } from "@mui/x-data-grid";
 import StyledDataGrid from "./StyledDataGrid";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
 
 interface Message {
   text: string;
   sender: "user" | "bot" | "system";
-  image?: string;
-  data?: any[]; // Add this line to include the data property
+  data?: any; // Changed from any[] to any to accommodate both chart and grid data
 }
 
 const ChatbotInterface: React.FC = () => {
@@ -67,8 +76,8 @@ const ChatbotInterface: React.FC = () => {
 
           let newMessage: Message = { text: botResponse, sender: "bot" };
 
-          // Check if there's data for the DataGrid
-          if (Array.isArray(data.response[1]) && data.response[1].length > 0) {
+          // Check if there's data for the chart or DataGrid
+          if (data.response[1]) {
             newMessage.data = data.response[1];
           }
 
@@ -193,40 +202,83 @@ const ChatbotInterface: React.FC = () => {
               {message.sender === "bot" ? (
                 <>
                   <ReactMarkdown>{message.text}</ReactMarkdown>
-                  {message.data && message.data.length > 0 && (
-                    <div
-                      style={{ height: 400, width: "100%", marginTop: "20px" }}
-                    >
-                      <StyledDataGrid
-                        rows={message.data.map((row, index) => ({
-                          id: index,
-                          ...row,
-                        }))}
-                        columns={Object.keys(message.data[0]).map((key) => ({
-                          field: key,
-                          headerName:
-                            key.charAt(0).toUpperCase() + key.slice(1),
-                          flex: 1,
-                        }))}
-                        initialState={{
-                          pagination: {
-                            paginationModel: { pageSize: 5 },
-                          },
+
+                  {message.data &&
+                    message.data.xAxis &&
+                    message.data.series && (
+                      <div
+                        style={{
+                          height: 400,
+                          width: "100%",
+                          marginTop: "20px",
                         }}
-                        disableRowSelectionOnClick
-                      />{" "}
-                    </div>
-                  )}
+                      >
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart
+                            data={message.data.xAxis[0].data.map(
+                              (x: any, i: number) => ({
+                                x: x,
+                                y: message.data.series[0].data[i],
+                              })
+                            )}
+                            margin={{
+                              top: 5,
+                              right: 30,
+                              left: 20,
+                              bottom: 5,
+                            }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="x" />
+                            <YAxis />
+                            <Tooltip />
+                            <Legend />
+                            <Line
+                              type="monotone"
+                              dataKey="y"
+                              stroke="#8884d8"
+                              activeDot={{ r: 8 }}
+                              name={message.data.series[0].name}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+
+                  {message.data &&
+                    message.data.length > 0 &&
+                    !message.data.xAxis &&
+                    !message.data.series && (
+                      <div
+                        style={{
+                          height: 400,
+                          width: "100%",
+                          marginTop: "20px",
+                        }}
+                      >
+                        <StyledDataGrid
+                          rows={message.data.map((row: any, index: any) => ({
+                            id: index,
+                            ...row,
+                          }))}
+                          columns={Object.keys(message.data[0]).map((key) => ({
+                            field: key,
+                            headerName:
+                              key.charAt(0).toUpperCase() + key.slice(1),
+                            flex: 1,
+                          }))}
+                          initialState={{
+                            pagination: {
+                              paginationModel: { pageSize: 5 },
+                            },
+                          }}
+                          disableRowSelectionOnClick
+                        />
+                      </div>
+                    )}
                 </>
               ) : (
                 <Typography variant="body1">{message.text}</Typography>
-              )}
-              {message.image && (
-                <img
-                  src={message.image}
-                  alt="Generated plot"
-                  style={{ maxWidth: "100%", marginTop: "10px" }}
-                />
               )}
             </div>
           ))}
@@ -237,7 +289,7 @@ const ChatbotInterface: React.FC = () => {
           )}
           <div ref={chatEndRef} />
         </Paper>
-      </div>{" "}
+      </div>
       <div className="user-input-area">
         <div className="upload-btn-container">
           <Button component="label">
