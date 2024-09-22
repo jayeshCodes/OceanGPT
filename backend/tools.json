@@ -88,13 +88,39 @@
                     "y_column": {
                         "type": "string",
                         "description": "The column to use for the y-axis"
+                    },
+                    "start_year": {
+                        "type": "integer",
+                        "description": "The start year for filtering the data (optional)"
+                    },
+                    "end_year": {
+                        "type": "integer",
+                        "description": "The end year for filtering the data (optional)"
                     }
                 },
                 "required": [
                     "x_column",
                     "y_column"
                 ]
-            }
+            },
+            "examples": [
+                {
+                    "input": {
+                        "x_column": "date",
+                        "y_column": "sea_level"
+                    },
+                    "output": "Plotting sea level trend for the entire dataset"
+                },
+                {
+                    "input": {
+                        "x_column": "date",
+                        "y_column": "sea_level",
+                        "start_year": 2001,
+                        "end_year": 2006
+                    },
+                    "output": "Plotting sea level trend from 2001 to 2006"
+                }
+            ]
         }
     }
 ]

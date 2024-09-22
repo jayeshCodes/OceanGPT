@@ -203,83 +203,94 @@ const ChatbotInterface: React.FC = () => {
                 <>
                   <ReactMarkdown>{message.text}</ReactMarkdown>
 
-                  {message.data &&
-                    message.data.xAxis &&
-                    message.data.series && (
-                      <div
-                        style={{
-                          height: 400,
-                          width: "100%",
-                          marginTop: "20px",
-                        }}
-                      >
-                        <ResponsiveContainer width="100%" height="100%">
-                          <LineChart
-                            data={message.data.xAxis[0].data.map(
+                  {/* Chart rendering */}
+                  {message.data && message.data.xAxis && message.data.series ? (
+                    <div
+                      style={{
+                        height: 400,
+                        width: "100%",
+                        marginTop: "20px",
+                      }}
+                    >
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart
+                          data={
+                            message.data.xAxis[0]?.data?.map(
                               (x: any, i: number) => ({
                                 x: x,
-                                y: message.data.series[0].data[i],
+                                y: message.data.series[0]?.data[i], // Use optional chaining to safely access nested data
                               })
-                            )}
-                            margin={{
-                              top: 5,
-                              right: 30,
-                              left: 20,
-                              bottom: 5,
-                            }}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="x" />
-                            <YAxis />
-                            <Tooltip />
-                            <Legend />
-                            <Line
-                              type="monotone"
-                              dataKey="y"
-                              stroke="#8884d8"
-                              activeDot={{ r: 8 }}
-                              name={message.data.series[0].name}
-                            />
-                          </LineChart>
-                        </ResponsiveContainer>
-                      </div>
-                    )}
+                            ) || [] // Provide an empty array as fallback
+                          }
+                          margin={{
+                            top: 5,
+                            right: 30,
+                            left: 20,
+                            bottom: 5,
+                          }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis dataKey="x" />
+                          <YAxis />
+                          <Tooltip />
+                          <Legend />
+                          <Line
+                            type="monotone"
+                            dataKey="y"
+                            stroke="#8884d8"
+                            activeDot={{ r: 8 }}
+                            name={message.data.series[0]?.name || "Unknown"} // Provide fallback name
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <Typography variant="body2" color="textSecondary">
+                      No chart data available.
+                    </Typography>
+                  )}
 
+                  {/* DataGrid rendering */}
                   {message.data &&
-                    message.data.length > 0 &&
-                    !message.data.xAxis &&
-                    !message.data.series && (
-                      <div
-                        style={{
-                          height: 400,
-                          width: "100%",
-                          marginTop: "20px",
-                        }}
-                      >
-                        <StyledDataGrid
-                          rows={message.data.map((row: any, index: any) => ({
-                            id: index,
-                            ...row,
-                          }))}
-                          columns={Object.keys(message.data[0]).map((key) => ({
+                  Array.isArray(message.data) &&
+                  message.data.length > 0 ? (
+                    <div
+                      style={{
+                        height: 400,
+                        width: "100%",
+                        marginTop: "20px",
+                      }}
+                    >
+                      <StyledDataGrid
+                        rows={message.data.map((row: any, index: any) => ({
+                          id: index,
+                          ...row,
+                        }))}
+                        columns={Object.keys(message.data[0] || {})
+                          .reverse() // Reverse the keys back to the correct order
+                          .map((key) => ({
                             field: key,
                             headerName:
                               key.charAt(0).toUpperCase() + key.slice(1),
                             flex: 1,
                           }))}
-                          initialState={{
-                            pagination: {
-                              paginationModel: { pageSize: 5 },
-                            },
-                          }}
-                          disableRowSelectionOnClick
-                        />
-                      </div>
-                    )}
+                        initialState={{
+                          pagination: {
+                            paginationModel: { pageSize: 5 },
+                          },
+                        }}
+                        disableRowSelectionOnClick
+                      />
+                    </div>
+                  ) : (
+                    <Typography variant="body2" color="textSecondary">
+                      No table data available.
+                    </Typography>
+                  )}
                 </>
               ) : (
                 <Typography variant="body1">{message.text}</Typography>
-              )}
+              )}{" "}
             </div>
           ))}
           {loading && (

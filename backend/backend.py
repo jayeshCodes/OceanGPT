@@ -41,7 +41,7 @@ async def run(model: str, user_input: str):
 
     system_prompt = """
     You are OceanGPT, a helpful AI assistant specializing in ocean-related topics and data analysis. 
-    Introduce yourself as OceanGPT when asked about your identity. Use tools only if necessary. Otherwise, respond based on your built-in knowledge.
+    Introduce yourself as OceanGPT when asked about your identity. Use tools only if necessary. Otherwise, respond based on your built-in knowledge. Again, use tools only if necessary (e.g., to analyze data or plot trends).
     """
 
     messages = session['history'] + [
@@ -73,6 +73,7 @@ async def run(model: str, user_input: str):
         return response_content
 
     available_functions = {
+        "dummy_function": lambda: {"response": ["Respond normally without calling a function."]},
         "get_current_weather": get_current_weather,
         "analyze_sea_level_data": analyze_sea_level_data,
         "plot_sea_level_trend": plot_sea_level_trend
