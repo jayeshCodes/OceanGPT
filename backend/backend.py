@@ -1,16 +1,22 @@
 import json
 import asyncio
+import re
 import ollama
 from flask import Flask, jsonify, request, session
 from flask_cors import CORS
 import os
 import traceback
 import logging
-from datetime import timedelta
+from datetime import timedelta, datetime
+import pandas as pd
+import matplotlib.pyplot as plt
+import io
+import base64
 
 # Import functions from the functions folder
 from functions.get_current_weather import get_current_weather
-from functions.normal_response import normal_response
+from functions.analyze_sea_level_data import analyze_sea_level_data
+from functions.plot_sea_level_trend import plot_sea_level_trend
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv("SECRET_KEY", "your_fallback_secret_key")
@@ -30,16 +36,14 @@ with open('tools.json', 'r') as f:
 async def run(model: str, user_input: str):
     client = ollama.AsyncClient()
 
-    # Check if conversation history exists in the session
     if 'history' not in session:
         session['history'] = []
 
-    # Updated system prompt introducing OceanGPT
     system_prompt = """
     You are OceanGPT, a helpful AI assistant specializing in ocean-related topics and data analysis. 
     Introduce yourself as OceanGPT when asked about your identity. Use tools only if necessary. Otherwise, respond based on your built-in knowledge.
     """
-    
+
     messages = session['history'] + [
         {
             "role": "system",
@@ -60,69 +64,66 @@ async def run(model: str, user_input: str):
 
     app.logger.debug(f"Response from Ollama: {response}")
 
-    # Check if the content can be directly used (without tools)
     response_content = response["message"]["content"]
 
-    # If no tool calls and the response is complete, return it
-    if response_content and "tool_calls" not in response["message"]:
+    if "tool_calls" not in response["message"]:
         session['history'].append({"role": "user", "content": user_input})
-        session['history'].append({"role": "assistant", "content": response_content})
+        session['history'].append(
+            {"role": "assistant", "content": response_content})
         return response_content
 
-    # If tool calls are detected, process them
     available_functions = {
-        "normal_response": normal_response,
-        "get_current_weather": get_current_weather
+        "get_current_weather": get_current_weather,
+        "analyze_sea_level_data": analyze_sea_level_data,
+        "plot_sea_level_trend": plot_sea_level_trend
     }
 
-    if response["message"].get("tool_calls"):
-        for tool in response["message"]["tool_calls"]:
-            function_to_call = available_functions.get(tool["function"]["name"])
+    for tool in response["message"]["tool_calls"]:
+        function_name = tool["function"]["name"]
+        function_to_call = available_functions.get(function_name)
 
-            if function_to_call == normal_response:
-                function_response = function_to_call(
-                    user_input=user_input, system_response=response_content)
-
-                messages.append(
-                    {
-                        "role": "tool",
-                        "content": function_response,
-                    }
-                )
-
-                response2 = await client.chat(
-                    model=model,
-                    messages=[{'role': 'user', 'content': function_response}],
-                )
-
-                session['history'].append({"role": "assistant", "content": response2["message"]["content"]})
-                return response2["message"]["content"]
-
-            elif function_to_call == get_current_weather:
-                function_response = function_to_call(
-                    tool["function"]["arguments"]["location"],
-                    tool["function"]["arguments"]["date"]
-                )
+        if function_to_call:
+            try:
+                function_args = json.loads(tool["function"]["arguments"]) if isinstance(
+                    tool["function"]["arguments"], str) else tool["function"]["arguments"]
+                function_response = function_to_call(**function_args)
+                # print(function_response)
 
                 messages.append(
                     {
                         "role": "tool",
-                        "content": function_response,
+                        "content": str(function_response),
                     }
                 )
 
+                # add json data to a separate structure for processing in the frontend
+                json_data = function_response["data"] if "data" in function_response else None
+
                 response2 = await client.chat(
                     model=model,
-                    messages=[{'role': 'user', 'content': function_response}],
+                    messages=messages +
+                    [{'role': 'user', 'content': str(function_response)}],
                 )
 
-                session['history'].append({"role": "assistant", "content": response2["message"]["content"]})
-                return response2["message"]["content"]
+                final_response = response2["message"]["content"]
+                session['history'].append(
+                    {"role": "assistant", "content": final_response})
+                return final_response, json_data
 
-    # Return original response if no tool was needed
+            except json.JSONDecodeError:
+                app.logger.error(f"Error decoding JSON for function arguments: {
+                                 tool['function']['arguments']}")
+                return "There was an error processing the function arguments."
+            except Exception as e:
+                app.logger.error(f"Error calling function {
+                                 function_name}: {str(e)}")
+                return f"There was an error executing the {function_name} function."
+
+    # If no function was called, return the original response
     session['history'].append({"role": "user", "content": user_input})
-    session['history'].append({"role": "assistant", "content": response_content})
-    return response["message"]["content"]
+    session['history'].append(
+        {"role": "assistant", "content": response_content})
+    return response_content
 
 
 @app.route('/chat', methods=['POST'])
@@ -135,7 +136,6 @@ def chat():
         return jsonify({"error": "No user input provided"}), 400
 
     try:
-        # Run the async function in Flask
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         response = loop.run_until_complete(run(model, user_input))
@@ -158,14 +158,79 @@ def reset():
 def upload_csv():
     if 'file' not in request.files:
         return jsonify({"error": "No file part"}), 400
+
     file = request.files['file']
+
     if file.filename == '':
         return jsonify({"error": "No selected file"}), 400
+
     if file and file.filename.endswith('.csv'):
-        # Process the CSV file here
-        return jsonify({"message": f"Successfully uploaded {file.filename}"}), 200
+        try:
+            location = "sea_level"  # Default location
+            date_saved = datetime.now().strftime("%Y%m%d")
+            new_filename = f"{location}_{date_saved}.csv"
+
+            os.makedirs('../database', exist_ok=True)
+            file_path = os.path.join('../database', new_filename)
+
+            # Check if a file with the same location already exists
+            existing_files = [f for f in os.listdir(
+                '../database') if f.startswith(location)]
+            overwrite = False
+            existing_file_info = None
+
+            for existing_file in existing_files:
+                existing_file_path = os.path.join('../database', existing_file)
+                file_age = (datetime.now(
+                ) - datetime.fromtimestamp(os.path.getmtime(existing_file_path))).days
+
+                # Check if the existing file is older than 30 days
+                if file_age > 30:
+                    overwrite = True
+                    break
+                else:
+                    # Save the existing file information
+                    existing_file_info = {
+                        'filename': existing_file,
+                        'file_path': existing_file_path,
+                        'file_age': file_age,
+                    }
+
+            # If there are no files or we decided to overwrite, save the new file
+            if not existing_files or overwrite:
+                file.save(file_path)
+
+                df = pd.read_csv(file_path, delimiter=',', header=0,
+                                 skiprows=5, index_col=False)
+                df.columns = df.columns.str.strip()
+                cleaned_file_path = os.path.join(
+                    '../database', f"cleaned_{new_filename}")
+                df.to_csv(cleaned_file_path, index=False)
+
+                df = pd.read_csv(cleaned_file_path)
+
+                session['uploaded_file'] = {
+                    'filename': f"cleaned_{new_filename}",
+                    'file_path': cleaned_file_path,
+                    'preview': df.head().to_dict(),
+                    "context": "a dataset representing sea level data over the years",
+                }
+
+            # Include existing file info if available
+            if existing_file_info:
+                session['existing_file'] = existing_file_info
+
+                return jsonify({"message": f"File saved as {new_filename} and processed successfully."}), 200
+            else:
+                # Include existing file info in the session
+                session['existing_file'] = existing_file_info
+                return jsonify({"error": "An existing file is still valid and not older than 30 days."}), 400
+
+        except Exception as e:
+            app.logger.error(f"Error processing file: {e}")
+            return jsonify({"error": "Error processing file"}), 500
     else:
-        return jsonify({"error": "Invalid file type. Please upload a CSV file."}), 400
+        return jsonify({"error": "Invalid file format"}), 400
 
 
 if __name__ == "__main__":

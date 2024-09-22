@@ -25,22 +25,74 @@
     },
     {
         "type": "function",
-        "function" : {
-            "name": "normal_response",
-            "description": "Generate a normal response based on the user's input and system response",
+        "function": {
+            "name": "analyze_sea_level_data",
+            "description": "Analyze sea level data from the uploaded CSV file",
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "user_input": {
+                    "operation": {
                         "type": "string",
-                        "description": "The user's input"
+                        "enum": [
+                            "head",
+                            "tail",
+                            "describe"
+                        ],
+                        "description": "The operation to perform on the data"
                     },
-                    "system_response": {
-                        "type": "string",
-                        "description": "The system's response"
+                    "n": {
+                        "type": "integer",
+                        "description": "Number of rows to show for head or tail operations"
                     }
                 },
                 "required": [
+                    "operation"
+                ]
+            },
+            "examples": [
+                {
+                    "input": {
+                        "operation": "head",
+                        "n": 5
+                    },
+                    "output": "Showing the first 5 rows of the sea level data: "
+                },
+                {
+                    "input": {
+                        "operation": "tail",
+                        "n": 5
+                    },
+                    "output": "Showing the last 5 rows of the sea level data: "
+                },
+                {
+                    "input": {
+                        "operation": "describe"
+                    },
+                    "output": "Descriptive statistics of the sea level data: "
+                }
+            ]
+        }
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "plot_sea_level_trend",
+            "description": "Plot sea level trend from the uploaded CSV file",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "x_column": {
+                        "type": "string",
+                        "description": "The column to use for the x-axis"
+                    },
+                    "y_column": {
+                        "type": "string",
+                        "description": "The column to use for the y-axis"
+                    }
+                },
+                "required": [
+                    "x_column",
+                    "y_column"
                 ]
             }
         }

@@ -3,6 +3,14 @@ def normal_response(user_input=None, system_response=None):
 
     # Generate a simple response based on user input and system response
     if user_input:
-        return f"User said: {user_input}. System said: {system_prompt}."
+        response = f"User said: {user_input}. System replied: {system_response}. Your identity: {system_prompt}."
     else:
-        return "No user input was provided."
+        response = "No user input was provided."
+
+    # Append to session history to maintain context
+    if 'history' not in session:
+        session['history'] = []
+    
+    session['history'].append({"role": "assistant", "content": response})
+    
+    return response

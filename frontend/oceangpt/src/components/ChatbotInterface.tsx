@@ -16,18 +16,25 @@ import {
 } from "@mui/material";
 import { Send, Upload, RotateCcw, Settings } from "lucide-react";
 import "../styles/chatbotInterface.css";
+import ReactMarkdown from "react-markdown";
+import { DataGrid, GridColDef } from "@mui/x-data-grid";
+import StyledDataGrid from "./StyledDataGrid";
 
 interface Message {
   text: string;
   sender: "user" | "bot" | "system";
+  image?: string;
+  data?: any[]; // Add this line to include the data property
 }
 
 const ChatbotInterface: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState<string>("");
-  const [loading, setLoading] = useState<boolean>(false); // New loading state
+  const [loading, setLoading] = useState<boolean>(false);
   const [file, setFile] = useState<File | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [dataGridRows, setDataGridRows] = useState<any[]>([]);
+  const [dataGridColumns, setDataGridColumns] = useState<GridColDef[]>([]);
 
   const scrollToBottom = () => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -37,33 +44,36 @@ const ChatbotInterface: React.FC = () => {
 
   const handleSend = async (): Promise<void> => {
     if (input.trim()) {
-      // Append user's message to the chat
       setMessages([...messages, { text: input, sender: "user" }]);
-      setInput(""); // Clear the input after sending the message
-
-      setLoading(true); // Set loading to true when request starts
+      setInput("");
+      setLoading(true);
 
       try {
-        // Send the message to the Flask backend
         const response = await fetch("http://127.0.0.1:5000/chat", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ prompt: input }), // send the input as prompt
+          body: JSON.stringify({ prompt: input }),
           credentials: "include",
         });
 
-        // Handle backend response
         if (response.ok) {
           const data = await response.json();
-          const botResponse = data.response; // The response from the backend
+          console.log("data", data);
 
-          // Append bot's response to the chat
-          setMessages((prev) => [
-            ...prev,
-            { text: botResponse, sender: "bot" },
-          ]);
+          // Extract the bot's textual response
+          const botResponse = data.response[0];
+
+          let newMessage: Message = { text: botResponse, sender: "bot" };
+
+          // Check if there's data for the DataGrid
+          if (Array.isArray(data.response[1]) && data.response[1].length > 0) {
+            newMessage.data = data.response[1];
+          }
+
+          // Add bot's response message
+          setMessages((prev) => [...prev, newMessage]);
         } else {
           console.error("Failed to fetch response from the backend");
           setMessages((prev) => [
@@ -81,7 +91,7 @@ const ChatbotInterface: React.FC = () => {
           { text: "Error: Failed to connect to the server", sender: "system" },
         ]);
       } finally {
-        setLoading(false); // Set loading to false once the request completes
+        setLoading(false);
       }
     }
   };
@@ -96,10 +106,9 @@ const ChatbotInterface: React.FC = () => {
         setFile(uploadedFile);
         setMessages((prev) => [
           ...prev,
-          { text: `Uploaded: ${uploadedFile.name}`, sender: "system" },
+          { text: `Uploading: ${uploadedFile.name}`, sender: "system" },
         ]);
 
-        // Call the function to upload the file
         await uploadFile(uploadedFile);
       } else {
         alert("Please upload a CSV file");
@@ -143,7 +152,7 @@ const ChatbotInterface: React.FC = () => {
   const handleKeyPress = (event: KeyboardEvent<HTMLTextAreaElement>): void => {
     if (event.key === "Enter" && !event.shiftKey) {
       event.preventDefault();
-      handleSend(); // Simulate clicking the send button on Enter
+      handleSend();
     }
   };
 
@@ -153,7 +162,8 @@ const ChatbotInterface: React.FC = () => {
         method: "POST",
         credentials: "include",
       });
-      setMessages([]); // Clear the messages on the frontend
+      setMessages([]);
+      setFile(null);
     } catch (error) {
       console.error("Error resetting conversation:", error);
     }
@@ -162,17 +172,14 @@ const ChatbotInterface: React.FC = () => {
   return (
     <div className="body">
       <div className="title-container">
-        {/* App title */}
         <div className="title">
           <h1 className="title-text">🌊 OceanGPT v0.1</h1>
         </div>
-        {/* Reset button */}
         <div className="reset-container">
           <Button onClick={handleReset}>
             <RotateCcw />
           </Button>
         </div>
-        {/* Settings button */}
         <div className="settings-container">
           <Button>
             <Settings />
@@ -183,21 +190,54 @@ const ChatbotInterface: React.FC = () => {
         <Paper elevation={3} className="chat-paper">
           {messages.map((message, index) => (
             <div key={index} className={`message ${message.sender}`}>
-              <Typography variant="body1">{message.text}</Typography>
+              {message.sender === "bot" ? (
+                <>
+                  <ReactMarkdown>{message.text}</ReactMarkdown>
+                  {message.data && message.data.length > 0 && (
+                    <div
+                      style={{ height: 400, width: "100%", marginTop: "20px" }}
+                    >
+                      <StyledDataGrid
+                        rows={message.data.map((row, index) => ({
+                          id: index,
+                          ...row,
+                        }))}
+                        columns={Object.keys(message.data[0]).map((key) => ({
+                          field: key,
+                          headerName:
+                            key.charAt(0).toUpperCase() + key.slice(1),
+                          flex: 1,
+                        }))}
+                        initialState={{
+                          pagination: {
+                            paginationModel: { pageSize: 5 },
+                          },
+                        }}
+                        disableRowSelectionOnClick
+                      />{" "}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <Typography variant="body1">{message.text}</Typography>
+              )}
+              {message.image && (
+                <img
+                  src={message.image}
+                  alt="Generated plot"
+                  style={{ maxWidth: "100%", marginTop: "10px" }}
+                />
+              )}
             </div>
           ))}
-
-          {/* Show a loading text when waiting for the bot's response */}
           {loading && (
             <div className="message bot">
-              <CircularProgress size={20} />{" "}
-              {/* Replace this with a loading spinner */}
+              <CircularProgress size={20} />
             </div>
           )}
-
           <div ref={chatEndRef} />
         </Paper>
-      </div>
+      </div>{" "}
       <div className="user-input-area">
         <div className="upload-btn-container">
           <Button component="label">
@@ -220,7 +260,7 @@ const ChatbotInterface: React.FC = () => {
             onChange={(e: ChangeEvent<HTMLTextAreaElement>) =>
               setInput(e.target.value)
             }
-            onKeyPress={handleKeyPress} // Handle key press event here
+            onKeyPress={handleKeyPress}
           />
         </div>
         <div className="send-btn">
