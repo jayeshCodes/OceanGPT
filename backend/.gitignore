@@ -1,3 +1,4 @@
 env/
 .env
 functions/__pycache__/
+.vscode/
