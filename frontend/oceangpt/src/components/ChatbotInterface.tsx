@@ -295,7 +295,8 @@ const ChatbotInterface: React.FC = () => {
           ))}
           {loading && (
             <div className="message bot">
-              <CircularProgress size={20} />
+              {/* <CircularProgress size={20} /> */}
+              <Typography className="thinking-message" variant="body1">OceanGPT is thinking...</Typography>
             </div>
           )}
           <div ref={chatEndRef} />

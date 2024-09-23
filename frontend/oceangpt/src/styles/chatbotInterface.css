@@ -232,6 +232,12 @@ input:focus {
   color: black;
 }
 
+.thinking-message {
+  font-weight: lighter;
+  font-style: italic;
+  color: #242424;
+}
+
 .system {
   align-self: center;
   background-color: #7cf5ff;
