@@ -169,21 +169,19 @@ def upload_csv():
         try:
             location = "sea_level"  # Default location
             date_saved = datetime.now().strftime("%Y%m%d")
-            new_filename = f"{location}_{date_saved}.csv"
+            new_filename = f"cleaned_{location}_{date_saved}.csv"  # Changed to include 'cleaned_' prefix
 
             os.makedirs('../database', exist_ok=True)
             file_path = os.path.join('../database', new_filename)
 
             # Check if a file with the same location already exists
-            existing_files = [f for f in os.listdir(
-                '../database') if f.startswith(location)]
+            existing_files = [f for f in os.listdir('../database') if f.startswith(f"cleaned_{location}")]
             overwrite = False
             existing_file_info = None
 
             for existing_file in existing_files:
                 existing_file_path = os.path.join('../database', existing_file)
-                file_age = (datetime.now(
-                ) - datetime.fromtimestamp(os.path.getmtime(existing_file_path))).days
+                file_age = (datetime.now() - datetime.fromtimestamp(os.path.getmtime(existing_file_path))).days
 
                 # Check if the existing file is older than 30 days
                 if file_age > 30:
@@ -199,27 +197,21 @@ def upload_csv():
 
             # If there are no files or we decided to overwrite, save the new file
             if not existing_files or overwrite:
-                file.save(file_path)
-
-                df = pd.read_csv(file_path, delimiter=',', header=0,
-                                 skiprows=5, index_col=False)
+                df = pd.read_csv(file, delimiter=',', header=0, skiprows=5, index_col=False)
                 df.columns = df.columns.str.strip()
-                cleaned_file_path = os.path.join(
-                    '../database', f"cleaned_{new_filename}")
-                df.to_csv(cleaned_file_path, index=False)
+                df.to_csv(file_path, index=False)
 
-                df = pd.read_csv(cleaned_file_path)
+                df = pd.read_csv(file_path)
 
                 session['uploaded_file'] = {
-                    'filename': f"cleaned_{new_filename}",
-                    'file_path': cleaned_file_path,
+                    'filename': new_filename,
+                    'file_path': file_path,
                     'preview': df.head().to_dict(),
-                    "context": "a dataset representing sea level data over the years",
+                    "context": "a cleaned dataset representing sea level data over the years",
                 }
 
-            # Include existing file info if available
-            if existing_file_info:
-                session['existing_file'] = existing_file_info
+                # Remove existing file info from session if we've overwritten
+                session.pop('existing_file', None)
 
                 return jsonify({"message": f"File saved as {new_filename} and processed successfully."}), 200
             else:
@@ -232,6 +224,13 @@ def upload_csv():
             return jsonify({"error": "Error processing file"}), 500
     else:
         return jsonify({"error": "Invalid file format"}), 400
+# Debug: Log session state at the end of each request
+
+
+@app.after_request
+def log_session_after_request(response):
+    logging.debug(f"Session after request: {dict(session)}")
+    return response
 
 
 if __name__ == "__main__":
